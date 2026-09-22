@@ -59,3 +59,19 @@ Invoke-RestMethod -Uri "YOUR_API_URL" -Method POST -Body '{"customer_id": "cust_
 ```
 
 To prevent unnecessary AWS charges, destroy the infrastructure when testing is complete by running `terraform destroy` in the development environment directory.
+
+## Implementation Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/fig1.png" alt="Implementation Screenshot 1" width="100%"></td>
+    <td width="50%"><img src="assets/fig2.png" alt="Implementation Screenshot 2" width="100%"></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/fig3.png" alt="Implementation Screenshot 3" width="100%"></td>
+    <td width="50%"><img src="assets/fig4.png" alt="Implementation Screenshot 4" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="assets/fig5.png" alt="Implementation Screenshot 5" width="50%"></td>
+  </tr>
+</table>
