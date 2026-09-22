@@ -1,64 +1,61 @@
-# Event-Driven E-Commerce Architecture Guide
+# Serverless Event-Driven E-Commerce Architecture
 
-This repository contains the infrastructure and application code for a fully serverless, event-driven e-commerce platform built on Amazon Web Services. The objective of this project is to demonstrate highly scalable microservice choreography and orchestration without managing any underlying servers.
+This repository contains the infrastructure and application code for a scalable, serverless e-commerce backend built entirely on Amazon Web Services. The project demonstrates advanced cloud engineering patterns, specifically event choreography for loose coupling and SAGA pattern orchestration for distributed transactions.
 
-By leveraging native cloud services, this architecture ensures high availability, fault tolerance, and independent scalability for each business domain.
+The architecture ensures high availability, strict fault tolerance, and independent scalability for distinct business domains.
 
-## Visual Overview
-
-The following grid showcases the system architecture, state machine execution flows, and integration diagrams.
+## System Architecture
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/fig1.png" alt="Architecture Diagram 1" width="100%"></td>
-    <td width="50%"><img src="assets/fig2.png" alt="Architecture Diagram 2" width="100%"></td>
-  </tr>
-  <tr>
-    <td width="50%"><img src="assets/fig3.png" alt="Architecture Diagram 3" width="100%"></td>
-    <td width="50%"><img src="assets/fig4.png" alt="Architecture Diagram 4" width="100%"></td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><img src="assets/fig5.png" alt="Architecture Diagram 5" width="50%"></td>
+    <td width="50%"><img src="assets/architecture_1.png" alt="High Level Event-Driven Architecture" width="100%"></td>
+    <td width="50%"><img src="assets/architecture_2.png" alt="SAGA Pattern Orchestration" width="100%"></td>
   </tr>
 </table>
 
-## Core Architectural Concepts
+## Core Engineering Concepts
 
-The system is separated into distinct microservices representing different business capabilities: Order Management, Payment Processing, Inventory Management, and Customer Notifications. 
-
-### API Gateway and Compute
-All external traffic is handled by Amazon API Gateway, which acts as the front door to the backend services. The API Gateway routes incoming HTTP requests to the appropriate AWS Lambda functions. Lambda provides the serverless compute layer, scaling automatically to meet concurrent demand while billing only for actual execution time.
-
-### Database Layer
-State and transactional data are stored in Amazon DynamoDB. We use single-table design principles where appropriate, providing single-digit millisecond latency at any scale. Each microservice maintains strict data isolation, ensuring that the Payment Service cannot directly mutate the Inventory Service database.
+### Decoupled Microservices
+All business logic is segmented into isolated domains: Order Management, Payment Processing, Inventory Management, and Customer Notifications. Each service is powered by AWS Lambda, allowing compute resources to scale automatically in response to traffic spikes without the need to provision or manage servers.
 
 ### Event Choreography
-Domain events are routed through Amazon EventBridge. When a new order is placed, an "OrderCreated" event is published to a central event bus. Other microservices subscribe to this bus, allowing them to react asynchronously. This pattern heavily decouples the architecture.
+To prevent tight coupling between services, state changes trigger domain events. When a customer places an order, the Order Service publishes an event to Amazon EventBridge. Downstream services subscribe to this central bus and react asynchronously. This pattern prevents cascading failures and allows new services to be added without modifying existing code.
 
-### Orchestration and SAGA Pattern
-For distributed transactions that require strict sequencing and rollback capabilities, AWS Step Functions coordinates the workflow. If a payment is successful but inventory reservation fails, the Step Functions state machine automatically executes compensating transactions to refund the payment and cancel the order.
+### SAGA Orchestration and Distributed Transactions
+Microservices introduce the challenge of maintaining data consistency across multiple databases. This architecture implements the SAGA pattern using AWS Step Functions. If a transaction succeeds partially (for example, a payment succeeds but inventory reservation fails), the state machine automatically executes compensating transactions to refund the customer and cancel the order gracefully.
 
-### Monitoring and Observability
-System health is tracked using Amazon CloudWatch and Amazon SNS. All Lambda executions output logs and metrics. If a message fails processing multiple times, it is routed to a Dead Letter Queue. CloudWatch Alarms actively monitor these queues and trigger SNS topics to page the engineering team immediately upon failure.
+### Single-Table Data Persistence
+State is managed using Amazon DynamoDB. Each microservice interacts strictly with its own isolated table to prevent data entanglements and ensure single-digit millisecond latency at scale.
+
+### Observability and Resilience
+System health is continuously monitored via Amazon CloudWatch. To handle transient failures, the system implements automated retries. If a message repeatedly fails to process, it is routed to an Amazon SQS Dead Letter Queue. CloudWatch Metric Alarms actively monitor these queues and trigger Amazon SNS topics to notify engineers of unhandled exceptions.
 
 ## Infrastructure as Code
 
-The entire environment is provisioned using Terraform. 
+The entire environment is codified using Terraform, ensuring the infrastructure is reproducible, version-controlled, and self-documenting. Reusable Terraform modules are created for API Gateway, EventBridge, Lambda functions, DynamoDB, and Step Functions to maintain a clean and modular codebase.
 
-* The `environments/dev` directory contains the entry point for the development stage.
-* The `modules` directory contains reusable Terraform components for the API Gateway, DynamoDB tables, EventBridge, Lambda functions, and Step Functions.
+## Deployment Guide
 
-## Deployment Steps
+Ensure you have the AWS CLI configured with administrative access, Terraform installed, and Python 3.12 available.
 
-1. Configure your AWS Command Line Interface with appropriate credentials.
-2. Ensure you have Python installed to package the microservices.
-3. Package each microservice directory into a deployment artifact (ZIP file).
-4. Navigate to the Terraform development environment directory.
-5. Execute the terraform initialization command to download required providers.
-6. Apply the Terraform configuration to provision the AWS resources.
+1. Package the Python microservices:
+```bash
+Compress-Archive -Path services\order-service\* -DestinationPath services\order-service\order-service.zip -Force
+Compress-Archive -Path services\payment-service\* -DestinationPath services\payment-service\payment-service.zip -Force
+Compress-Archive -Path services\inventory-service\* -DestinationPath services\inventory-service\inventory-service.zip -Force
+Compress-Archive -Path services\notification-service\* -DestinationPath services\notification-service\notification-service.zip -Force
+```
 
-Once the infrastructure is successfully deployed, Terraform will output the public API endpoint URL. You can use standard HTTP clients to send POST requests and trigger the entire event-driven flow.
+2. Initialize and deploy the infrastructure:
+```bash
+cd terraform/environments/dev
+terraform init
+terraform apply
+```
 
-## Cleanup Instructions
+3. Test the deployment using the API Gateway URL provided in the Terraform output:
+```bash
+Invoke-RestMethod -Uri "YOUR_API_URL" -Method POST -Body '{"customer_id": "cust_123", "items": ["laptop", "mouse"], "total_amount": 1500.00}' -ContentType "application/json"
+```
 
-To maintain a zero-cost footprint after testing, ensure you destroy all provisioned resources. Run the terraform destroy command in the environment directory to safely remove the API Gateway, Lambda functions, databases, and event buses.
+To prevent unnecessary AWS charges, destroy the infrastructure when testing is complete by running `terraform destroy` in the development environment directory.
